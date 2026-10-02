@@ -4,16 +4,13 @@ import google.generativeai as genai
 # 画面の基本設定
 st.set_page_config(page_title="航空会社 安全性評価", page_icon="✈️", layout="centered")
 
-# --- 合言葉（パスワード）設定 ---
-# secretsに設定した合言葉と一致しないと中身を見せない仕組み
 correct_password = st.secrets["APP_PASSWORD"]
 user_password = st.text_input("合言葉を入力してください", type="password")
 
 if user_password != correct_password:
     st.warning("このサイトは限定公開です。正しい合言葉を入力してください。")
-    st.stop() # ここで処理を止める
+    st.stop()
 
-# --- ここから下がメイン画面 ---
 st.title("✈️ 航空会社 安全性評価システム (V4)")
 st.write("航空会社名を入力すると、最新データに基づき安全性をS〜Fで判定します。")
 
@@ -24,10 +21,11 @@ except KeyError:
     st.error("システムエラー: APIキーが設定されていません。")
     st.stop()
 
-# V4モデルの指示書
+# 指示書
 system_instruction = """
-航空会社名を受け取り、安全リスクを客観的に算出します。
-コンサルティング総評などの文章は出力せず、指定のフォーマットに従って端的に結果を出力してください。
+あなたは航空会社の安全性を評価する専門AIです。
+以下の航空会社について、指定のフォーマットで端的に結果を出力してください。
+コンサルティング総評などの文章は出力しないでください。
 
 ## 評価アルゴリズム
 1. ゲートチェック（足切り）
@@ -63,17 +61,39 @@ system_instruction = """
 5. **最終判定**: [S/A/B/C/D/F] - [対応する文言]
 """
 
-model = genai.GenerativeModel(model_name="gemini-1.5-pro-latest", system_instruction=system_instruction)
-
 airline_name = st.text_input("評価したい航空会社名を入力してください (例: ANA, ライアンエアー)")
 
 if st.button("安全性を評価する"):
     if airline_name:
-        with st.spinner("AIが最新データを検索し、評価を計算中..."):
+        with st.spinner("AIが評価を計算中..."):
             try:
-                response = model.generate_content(airline_name)
-                st.success("評価が完了しました。")
+                # 使えるモデルを自動で一覧取得して最適なものを選ぶ（エラー回避ロジック）
+                available_models = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
+                
+                target_model = None
+                # まずは高性能な1.5系を探す
+                for m in available_models:
+                    if '1.5-flash' in m or '1.5-pro' in m:
+                        target_model = m
+                        break
+                # なければ使えるものを何でも設定する
+                if not target_model and available_models:
+                    target_model = available_models[0]
+
+                if not target_model:
+                    st.error("利用可能なAIモデルが見つかりません。APIキーの設定を確認してください。")
+                    st.stop()
+
+                model = genai.GenerativeModel(model_name=target_model)
+                
+                # 指示書とユーザー入力を合体させる（古いモデルでも確実に動かすため）
+                final_prompt = f"{system_instruction}\n\n対象の航空会社: {airline_name}"
+                
+                response = model.generate_content(final_prompt)
+                
+                st.success(f"評価が完了しました。")
                 st.markdown(response.text)
+                
             except Exception as e:
                 st.error(f"エラーが発生しました: {e}")
     else:
