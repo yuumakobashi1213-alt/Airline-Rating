@@ -65,28 +65,12 @@ airline_name = st.text_input("評価したい航空会社名を入力してく�
 
 if st.button("安全性を評価する"):
     if airline_name:
-        with st.spinner("AIが評価を計算中..."):
+        with st.spinner("AIが最新データから評価を計算中..."):
             try:
-                # 使えるモデルを自動で一覧取得して最適なものを選ぶ（エラー回避ロジック）
-                available_models = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
+                # エラーの指示通り、最新の「gemini-3.8-flash」を直接指定
+                model = genai.GenerativeModel(model_name="gemini-3.8-flash")
                 
-                target_model = None
-                # まずは高性能な1.5系を探す
-                for m in available_models:
-                    if '1.5-flash' in m or '1.5-pro' in m:
-                        target_model = m
-                        break
-                # なければ使えるものを何でも設定する
-                if not target_model and available_models:
-                    target_model = available_models[0]
-
-                if not target_model:
-                    st.error("利用可能なAIモデルが見つかりません。APIキーの設定を確認してください。")
-                    st.stop()
-
-                model = genai.GenerativeModel(model_name=target_model)
-                
-                # 指示書とユーザー入力を合体させる（古いモデルでも確実に動かすため）
+                # 指示書とユーザー入力を合体させる
                 final_prompt = f"{system_instruction}\n\n対象の航空会社: {airline_name}"
                 
                 response = model.generate_content(final_prompt)
