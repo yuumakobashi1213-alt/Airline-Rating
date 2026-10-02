@@ -63,7 +63,7 @@ system_instruction = """
 5. **最終判定**: [S/A/B/C/D/F] - [対応する文言]
 """
 
-model = genai.GenerativeModel(model_name="gemini-1.5-flash-latest", system_instruction=system_instruction)
+model = genai.GenerativeModel(model_name="gemini-1.5-pro-latest", system_instruction=system_instruction)
 
 airline_name = st.text_input("評価したい航空会社名を入力してください (例: ANA, ライアンエアー)")
 
